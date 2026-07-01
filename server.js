@@ -12,58 +12,43 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'campotech-horimetro.html'));
 });
 
-const EMAIL_CONFIG = {
-  user: process.env.EMAIL_USER || 'seuemail@gmail.com',
-  pass: process.env.EMAIL_PASS || 'xxxx xxxx xxxx xxxx',
-};
-
-let dynamicConfig = { ...EMAIL_CONFIG };
-
-function rebuildTransporter(user, pass) {
+function rebuildTransporter() {
   return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
+    host: 'smtp-relay.brevo.com',
     port: 587,
     secure: false,
-    auth: { user, pass }
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS
+    }
   });
 }
 
-let activeTransporter = rebuildTransporter(dynamicConfig.user, dynamicConfig.pass);
-
 app.get('/api/ping', (req, res) => {
-  res.json({ ok: true, message: 'Campo Tech Backend v1.0 online ✓' });
-});
-
-app.post('/api/config-email', async (req, res) => {
-  const { email, pass } = req.body;
-  if (!email || !pass)
-    return res.status(400).json({ ok: false, error: 'E-mail e senha são obrigatórios.' });
-  const testTransporter = rebuildTransporter(email, pass);
-  try {
-    await testTransporter.verify();
-    dynamicConfig = { user: email, pass };
-    activeTransporter = testTransporter;
-    res.json({ ok: true, message: 'E-mail configurado com sucesso!' });
-  } catch (err) {
-    res.status(400).json({ ok: false, error: 'Credenciais inválidas.' });
-  }
+  res.json({ ok: true, message: 'online' });
 });
 
 app.post('/api/send-alert', async (req, res) => {
-  const { emails, subject, machine, message, type, hours, hoursLeft } = req.body;
-  if (!emails || emails.length === 0)
-    return res.status(400).json({ ok: false, error: 'Nenhum destinatário.' });
+  const { emails, subject, machine, message } = req.body;
+  console.log('Tentando enviar para:', emails);
   try {
-    await activeTransporter.sendMail({
-      from:    `"Campo Tech Alertas" <${dynamicConfig.user}>`,
+    const transporter = rebuildTransporter();
+    await transporter.sendMail({
+      from:    process.env.EMAIL_USER,
       to:      emails.join(', '),
       subject: `[Campo Tech] ${subject}`,
-      html:    `<p>${message}</p><p>Máquina: ${machine}</p><p>Horímetro: ${hours} h</p>`,
+      html:    `<p><b>Máquina:</b> ${machine}</p><p><b>Mensagem:</b> ${message}</p>`,
     });
+    console.log('E-mail enviado com sucesso!');
     res.json({ ok: true, message: 'E-mail enviado!' });
   } catch (err) {
+    console.error('ERRO:', err.message);
     res.status(500).json({ ok: false, error: err.message });
   }
+});
+
+app.post('/api/config-email', (req, res) => {
+  res.json({ ok: true, message: 'Use as variáveis do Railway.' });
 });
 
 app.post('/api/horimetro', (req, res) => {
