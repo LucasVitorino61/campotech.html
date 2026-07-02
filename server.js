@@ -31,8 +31,13 @@ app.get('/api/ping', (req, res) => {
 app.post('/api/send-alert', async (req, res) => {
   const { emails, subject, machine, message } = req.body;
   console.log('Tentando enviar para:', emails);
+  console.log('USER:', process.env.EMAIL_USER);
+  console.log('HOST:', 'smtp-relay.brevo.com');
   try {
     const transporter = rebuildTransporter();
+    console.log('Transporter criado, verificando...');
+    await transporter.verify();
+    console.log('Verificado! Enviando...');
     await transporter.sendMail({
       from:    process.env.EMAIL_USER,
       to:      emails.join(', '),
